@@ -1,21 +1,13 @@
 import { Flummox, Store, Actions } from '../../Flux';
 import addContext from './addContext';
 
-import React from 'react';
-import TestUtils from 'react-addons-test-utils'
+import React from 'react/addons';
+const { TestUtils } = React.addons;
 
-import FluxComponent from '../FluxComponent';
+import { FluxComponent } from '../react';
 import sinon from 'sinon';
 
 describe('FluxComponent', () => {
-
-  class Inner extends React.Component {
-    render() {
-      return (
-        <div />
-      );
-    }
-  }
 
   class TestActions extends Actions {
     getSomething(something) {
@@ -96,17 +88,9 @@ describe('FluxComponent', () => {
     class SubSubView extends React.Component {
       render() {
         return (
-          <FluxComponent connectToStores="test">
-            <InnerWithData />
+          <FluxComponent stores="test">
+            <div />
           </FluxComponent>
-        );
-      }
-    }
-
-    class InnerWithData extends React.Component {
-      render() {
-        return (
-          <div data-something={this.props.something} />
         );
       }
     }
@@ -114,18 +98,19 @@ describe('FluxComponent', () => {
     const tree = TestUtils.renderIntoDocument(
       <TopView />
     );
+
     const div = TestUtils.findRenderedDOMComponentWithTag(tree, 'div');
 
     actions.getSomething('something good');
-    expect(div.getAttribute('data-something')).to.equal('something good');
+    expect(div.props.something).to.equal('something good');
   });
 
-  it('passes connectToStore prop to reactComponentMethod connectToStores()', () => {
+  it('passes `stores` prop to reactComponentMethod connectToStores()', () => {
     const flux = new Flux();
     const actions = flux.getActions('test');
 
     const component = TestUtils.renderIntoDocument(
-      <FluxComponent flux={flux} connectToStores="test" />
+      <FluxComponent flux={flux} stores="test" />
     );
 
     actions.getSomething('something good');
@@ -140,10 +125,63 @@ describe('FluxComponent', () => {
     const stateGetter = sinon.stub().returns({ fiz: 'bin' });
 
     const component = TestUtils.renderIntoDocument(
-      <FluxComponent flux={flux} connectToStores="test" stateGetter={stateGetter} />
+      <FluxComponent flux={flux} stores="test" stateGetter={stateGetter} />
     );
 
     expect(component.state.fiz).to.equal('bin');
+  });
+
+  it('passes injectActions prop to reactComponentMethod collectActions()', () => {
+    class Flux extends Flummox {
+      constructor() {
+        super();
+
+        this.createActions('A', {
+          do() {
+            return 're';
+          },
+
+          re() {
+            return 'mi';
+          }
+        });
+
+        this.createActions('B', {
+          mi() {
+            return 'fa';
+          },
+
+          fa() {
+            return 'so';
+          }
+        });
+      }
+    }
+
+    const flux = new Flux();
+
+    const component = TestUtils.renderIntoDocument(
+      <FluxComponent
+        flux={flux}
+        actions={{
+          A: actions => ({
+            do: actions.do
+          }),
+
+          B: actions => ({
+            fa: actions.fa
+          }),
+        }}
+        render={(storeState, actions, flux) =>
+          <div {...actions} />
+        }
+      />
+    );
+
+    const div = TestUtils.findRenderedDOMComponentWithTag(component, 'div');
+
+    expect(div.props.do()).to.equal('re');
+    expect(div.props.fa()).to.equal('so');
   });
 
   it('injects children with flux prop', () => {
@@ -152,12 +190,13 @@ describe('FluxComponent', () => {
 
     const tree = TestUtils.renderIntoDocument(
       <FluxComponent flux={flux}>
-        <Inner />
+        <div />
       </FluxComponent>
     );
 
-    const inner = TestUtils.findRenderedComponentWithType(tree, Inner);
-    expect(inner.props.flux).to.equal(flux);
+    const div = TestUtils.findRenderedDOMComponentWithTag(tree, 'div');
+
+    expect(div.props.flux).to.equal(flux);
   });
 
   it('injects children with props corresponding to component state', () => {
@@ -165,17 +204,17 @@ describe('FluxComponent', () => {
     const actions = flux.getActions('test');
 
     const tree = TestUtils.renderIntoDocument(
-      <FluxComponent flux={flux} connectToStores="test">
-        <Inner />
+      <FluxComponent flux={flux} stores="test">
+        <div />
       </FluxComponent>
     );
 
-    const inner = TestUtils.findRenderedComponentWithType(tree, Inner);
+    const div = TestUtils.findRenderedDOMComponentWithTag(tree, 'div');
 
     actions.getSomething('something good');
-    expect(inner.props.something).to.equal('something good');
+    expect(div.props.something).to.equal('something good');
     actions.getSomething('something else');
-    expect(inner.props.something).to.equal('something else');
+    expect(div.props.something).to.equal('something else');
   });
 
   it('injects children with any extra props', () => {
@@ -187,17 +226,18 @@ describe('FluxComponent', () => {
     const tree = TestUtils.renderIntoDocument(
       <FluxComponent
         flux={flux}
-        connectToStores="test"
+        stores="test"
         stateGetter={stateGetter}
         extraProp="hello"
-        render={(props) => <Inner {...props} />}
-      />
+      >
+        <div />
+      </FluxComponent>
     );
 
-    const inner = TestUtils.findRenderedComponentWithType(tree, Inner);
+    const div = TestUtils.findRenderedDOMComponentWithTag(tree, 'div');
 
-    expect(inner.props.extraProp).to.equal('hello');
-    expect(Object.keys(inner.props)).to.deep.equal(['flux', 'extraProp']);
+    expect(div.props.extraProp).to.equal('hello');
+    expect(Object.keys(div.props)).to.deep.equal(['flux', 'extraProp']);
   });
 
   it('wraps multiple children in span tag', () => {
@@ -205,13 +245,15 @@ describe('FluxComponent', () => {
 
     const tree = TestUtils.renderIntoDocument(
       <FluxComponent flux={flux}>
-        <Inner />
-        <Inner />
+        <div />
+        <div />
       </FluxComponent>
     );
 
-    const inners = TestUtils.scryRenderedComponentsWithType(tree, Inner);
-    expect(inners.length).to.equal(2);
+    const wrapper = TestUtils.findRenderedDOMComponentWithTag(tree, 'span');
+    const divs = TestUtils.scryRenderedDOMComponentsWithTag(tree, 'div');
+
+    expect(divs.length).to.equal(2);
   });
 
   it('does not wrap single child in span tag', () => {
@@ -233,19 +275,19 @@ describe('FluxComponent', () => {
     const actions = flux.getActions('test');
 
     const tree = TestUtils.renderIntoDocument(
-      <FluxComponent flux={flux} connectToStores="test">
+      <FluxComponent flux={flux} stores="test">
         <FluxComponent>
-          <Inner />
+          <div />
         </FluxComponent>
       </FluxComponent>
     );
 
-    const inner = TestUtils.findRenderedComponentWithType(tree, Inner);
+    const div = TestUtils.findRenderedDOMComponentWithTag(tree, 'div');
 
     actions.getSomething('something good');
-    expect(inner.props.something).to.equal('something good');
+    expect(div.props.something).to.equal('something good');
     actions.getSomething('something else');
-    expect(inner.props.something).to.equal('something else');
+    expect(div.props.something).to.equal('something else');
   });
 
   it('uses `render` prop for custom rendering, if it exists', () => {
@@ -255,9 +297,9 @@ describe('FluxComponent', () => {
     const tree = TestUtils.renderIntoDocument(
       <FluxComponent
         flux={flux}
-        connectToStores="test"
+        stores="test"
         render={props =>
-          <div data-something={props.something} />
+          <div something={props.something} />
         }
       />
     );
@@ -265,9 +307,9 @@ describe('FluxComponent', () => {
     const div = TestUtils.findRenderedDOMComponentWithTag(tree, 'div');
 
     actions.getSomething('something good');
-    expect(div.getAttribute('data-something')).to.equal('something good');
+    expect(div.props.something).to.equal('something good');
     actions.getSomething('something else');
-    expect(div.getAttribute('data-something')).to.equal('something else');
+    expect(div.props.something).to.equal('something else');
   });
 
   it('updates with render-time computed values in state getters on componentWillReceiveProps()', () => {
@@ -286,12 +328,12 @@ describe('FluxComponent', () => {
         return (
           <FluxComponent
             flux={flux}
-            connectToStores={{
+            stores={{
               test: store => ({
                 yay: this.state.foo
               })
             }}
-            render={storeState => <div data-yay={storeState.yay} />}
+            render={storeState => <div {...storeState} />}
           />
         );
       }
@@ -300,9 +342,9 @@ describe('FluxComponent', () => {
     const owner = TestUtils.renderIntoDocument(<Owner />);
     const div = TestUtils.findRenderedDOMComponentWithTag(owner, 'div');
 
-    expect(div.getAttribute('data-yay')).to.equal('bar');
+    expect(div.props.yay).to.equal('bar');
     owner.setState({ foo: 'baz' });
-    expect(div.getAttribute('data-yay')).to.equal('baz');
+    expect(div.props.yay).to.equal('baz');
   });
 
 });

@@ -1,12 +1,11 @@
-import fluxMixin from '../fluxMixin';
+import { fluxMixin } from '../react';
 import { Flummox, Store, Actions } from '../../Flux';
 import addContext from './addContext';
 import sinon from 'sinon';
 
-import React from 'react';
-import ReactDOM from 'react-dom';
-import TestUtils from 'react-addons-test-utils'
+import React from 'react/addons';
 const { PropTypes } = React;
+const { TestUtils } = React.addons;
 
 describe('fluxMixin', () => {
 
@@ -138,10 +137,10 @@ describe('fluxMixin', () => {
     });
 
     const container = document.createElement('div');
-    const component = ReactDOM.render(<Component flux={flux} />, container);
+    const component = React.render(<Component flux={flux} />, container);
     const listener = flux.getStore('test').listeners('change')[0];
 
-    ReactDOM.unmountComponentAtNode(container);
+    React.unmountComponentAtNode(container);
 
     flux.getActions('test').getSomething('bar');
     listener();
@@ -270,15 +269,13 @@ describe('fluxMixin', () => {
         }
       });
 
-      let component = TestUtils.renderIntoDocument(
+      const component = TestUtils.renderIntoDocument(
         <Component key="test" flux={flux} foo="bar" />
       );
 
       expect(component.state.foo).to.equal('foo is bar');
 
-      component = TestUtils.renderIntoDocument(
-        <Component key="test" flux={flux} foo="baz" />
-      );
+      component.setProps({ foo: 'baz' });
 
       expect(component.state.foo).to.equal('foo is baz');
     });
@@ -375,13 +372,13 @@ describe('fluxMixin', () => {
       const flux = new Flux();
       const div = document.createElement('div');
 
-      const component = ReactDOM.render(<ComponentWithFluxMixin flux={flux} />, div);
+      const component = React.render(<ComponentWithFluxMixin flux={flux} />, div);
 
       const store = flux.getStore('test');
       component.connectToStores('test');
 
       expect(store.listeners('change').length).to.equal(1);
-      ReactDOM.unmountComponentAtNode(div);
+      React.unmountComponentAtNode(div);
       expect(store.listeners('change').length).to.equal(0);
     });
 
